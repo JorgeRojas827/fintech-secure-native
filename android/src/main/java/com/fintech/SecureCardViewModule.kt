@@ -48,10 +48,6 @@ class SecureCardViewModule(private val reactContext: ReactApplicationContext) :
             }
         }
     }
-    
-    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
-        getWindow()?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-    }
 
     @ReactMethod
     fun closeSecureView() {

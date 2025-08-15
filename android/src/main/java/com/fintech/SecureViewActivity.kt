@@ -35,6 +35,7 @@ class SecureViewActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        enforceSecureFlag()
         startTime = System.currentTimeMillis()
         reactContext = reactApplicationContext!!
 
@@ -42,10 +43,15 @@ class SecureViewActivity : Activity() {
         params = JSONObject(paramsJson)
         config = params.getJSONObject("config")
         blurOnBackground = config.optBoolean("blurOnBackground", true)
+        enforceSecureFlag()
 
         setupUI()
         setupTimeout()
         sendCardDataShownEvent()
+    }
+
+    private fun enforceSecureFlag() {
+        getWindow()?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 
     private fun setupUI() {
