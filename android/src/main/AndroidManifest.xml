@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.fintech.securecardnative">
+
+    <application android:supportsRtl="true" android:allowBackup="false">
+        <activity
+            android:name="com.fintech.securecardnative.SecureViewActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:taskAffinity="com.fintech.securecardnative"
+            android:excludeFromRecents="true"
+            android:showOnLockScreen="false"
+            android:turnScreenOn="false"
+            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar" />
+    </application>
+
+</manifest>
+
+

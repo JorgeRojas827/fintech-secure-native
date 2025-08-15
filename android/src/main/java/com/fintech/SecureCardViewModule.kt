@@ -1,8 +1,9 @@
-package com.iofintech.securecardnative
+package com.fintech.securecardnative
 
 import com.facebook.react.bridge.*
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.turbomodule.core.interfaces.TurboModule
+import com.facebook.react.modules.core.DeviceEventManagerModule
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import android.app.Activity
@@ -20,12 +21,7 @@ class SecureCardViewModule(private val reactContext: ReactApplicationContext) :
 
     companion object {
         const val NAME = "SecureCardViewModule"
-        private const val TAG = "SecureCardView"
-        private var SECRET_KEY = "SECURE_CARD_VIEW_SECRET_KEY_2024"
-        
-        fun setSecretKey(secretKey: String) {
-            SECRET_KEY = secretKey
-        }
+        private const val TAG = "SecureCard"
     }
 
     init {
@@ -43,18 +39,6 @@ class SecureCardViewModule(private val reactContext: ReactApplicationContext) :
                 val token = params.getString("token")
                 val signature = params.getString("signature")
                 
-                if (isTokenExpired(token)) {
-                    sendValidationError("TOKEN_EXPIRED", "Token has expired", true)
-                    promise.reject("TOKEN_EXPIRED", "Token has expired")
-                    return@launch
-                }
-                
-                if (!validateHMACSignature(cardId, token, signature)) {
-                    sendValidationError("TOKEN_INVALID", "Invalid token signature", false)
-                    promise.reject("TOKEN_INVALID", "Invalid token signature")
-                    return@launch
-                }
-                
                 withContext(Dispatchers.Main) {
                     launchSecureActivity(params, promise)
                 }
@@ -64,52 +48,24 @@ class SecureCardViewModule(private val reactContext: ReactApplicationContext) :
             }
         }
     }
+    
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+        getWindow()?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
 
     @ReactMethod
     fun closeSecureView() {
-        val intent = Intent("com.iofintech.CLOSE_SECURE_VIEW")
+        val intent = Intent("com.fintech.CLOSE_SECURE_VIEW")
         reactContext.sendBroadcast(intent)
     }
 
-    @ReactMethod
-    fun getConstants(): WritableMap {
-        val constants = Arguments.createMap()
-        constants.putString("version", "1.0.0")
-        constants.putBoolean("isAndroid", true)
-        constants.putBoolean("supportsScreenshotBlocking", true)
-        constants.putBoolean("supportsBiometric", true)
+    override fun getConstants(): Map<String, Any>? {
+        val constants = mutableMapOf<String, Any>()
+        constants["version"] = "1.0.0"
+        constants["isAndroid"] = true
+        constants["supportsScreenshotBlocking"] = true
+        constants["supportsBiometric"] = true
         return constants
-    }
-
-    private fun isTokenExpired(token: String): Boolean {
-        return try {
-            val parts = token.split(":")
-            if (parts.size < 2) return true
-            
-            val timestamp = parts[1].toLong()
-            val currentTime = System.currentTimeMillis()
-            val tokenAge = currentTime - timestamp
-            
-            tokenAge > 3600000
-        } catch (e: Exception) {
-            true
-        }
-    }
-
-    private fun validateHMACSignature(cardId: String, token: String, signature: String): Boolean {
-        return try {
-            val mac = Mac.getInstance("HmacSHA256")
-            val secretKey = SecretKeySpec(SECRET_KEY.toByteArray(), "HmacSHA256")
-            mac.init(secretKey)
-            
-            val data = "$cardId:$token"
-            val computedSignature = mac.doFinal(data.toByteArray())
-                .joinToString("") { "%02x".format(it) }
-            
-            computedSignature == signature
-        } catch (e: Exception) {
-            false
-        }
     }
 
     private fun launchSecureActivity(params: JSONObject, promise: Promise) {
@@ -119,7 +75,12 @@ class SecureCardViewModule(private val reactContext: ReactApplicationContext) :
         }
         
         try {
-            currentActivity?.startActivity(intent) ?: reactContext.startActivity(intent)
+            val activity = reactContext.currentActivity
+            if (activity != null) {
+                activity.startActivity(intent)
+            } else {
+                reactContext.startActivity(intent)
+            }
             
             sendEvent("onSecureViewOpened", Arguments.createMap().apply {
                 putString("cardId", params.getString("cardId"))

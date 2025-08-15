@@ -1,6 +1,6 @@
 {
   "name": "fintech-secure-native",
-  "version": "1.0.15",
+  "version": "1.0.26",
   "description": "Secure native view for displaying sensitive card data",
   "main": "lib/commonjs/index.js",
   "module": "lib/module/index.js",
@@ -26,7 +26,7 @@
     "!**/.*"
   ],
   "scripts": {
-    "build": "../node_modules/.bin/bob build",
+    "build": "bob build",
     "clean": "del-cli lib android/build ios/build",
     "test": "jest",
     "type-check": "tsc --noEmit",

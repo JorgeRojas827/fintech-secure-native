@@ -4,18 +4,12 @@ apply plugin: "org.jetbrains.kotlin.android"
 repositories {
     google()
     mavenCentral()
-    maven {
-        // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
-        url("$rootDir/../../../../node_modules/react-native/android")
-    }
-    maven {
-        // Android JSC is installed from npm
-        url("$rootDir/../../../../node_modules/jsc-android/dist")
-    }
+    maven { url("$rootDir/../../../../node_modules/react-native/android") }
+    maven { url("$rootDir/../../../../node_modules/jsc-android/dist") }
 }
 
 android {
-    namespace "com.iofintech.securecardnative"
+    namespace "com.fintech.securecardnative"
     compileSdk 34
 
     defaultConfig {

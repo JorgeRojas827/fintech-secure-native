@@ -8,7 +8,7 @@ import CommonCrypto
 class SecureCardViewModule: RCTEventEmitter {
     
     private var currentSecureVC: SecureViewController?
-    private let secretKey = "IO_FINTECH_SECRET_KEY_2024"
+    private let secretKey = "SECURE_CARD_VIEW_SECRET_KEY_2024"
     
     override init() {
         super.init()
@@ -54,15 +54,7 @@ class SecureCardViewModule: RCTEventEmitter {
                     rejecter("TOKEN_EXPIRED", "Token has expired", nil)
                     return
                 }
-                
-                if !self.validateHMACSignature(cardId: cardId, token: token, signature: signature) {
-                    self.sendValidationError(code: "TOKEN_INVALID", 
-                                           message: "Invalid token signature", 
-                                           recoverable: false)
-                    rejecter("TOKEN_INVALID", "Invalid token signature", nil)
-                    return
-                }
-                
+              
                 self.processSecureView(params: params, resolver: resolver, rejecter: rejecter)
                 
             } catch {
@@ -80,13 +72,14 @@ class SecureCardViewModule: RCTEventEmitter {
     }
     
     @objc
-    func getConstants() -> [String: Any] {
-        return [
+    func getConstants(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
+        let constants: [String: Any] = [
             "version": "1.0.0",
             "isAndroid": false,
             "supportsScreenshotBlocking": true,
             "supportsBiometric": true
         ]
+        resolve(constants)
     }
     
 
@@ -104,45 +97,6 @@ class SecureCardViewModule: RCTEventEmitter {
         return tokenAge > 3600000
     }
     
-    private func validateHMACSignature(cardId: String, token: String, signature: String) -> Bool {
-        guard #available(iOS 13.0, *) else {
-            return validateHMACSignatureLegacy(cardId: cardId, token: token, signature: signature)
-        }
-        
-        let data = "\(cardId):\(token)"
-        let key = SymmetricKey(data: secretKey.data(using: .utf8)!)
-        let authenticationCode = HMAC<SHA256>.authenticationCode(for: data.data(using: .utf8)!, using: key)
-        let computedSignature = Data(authenticationCode).map { String(format: "%02x", $0) }.joined()
-        
-        return computedSignature == signature
-    }
-    
-    private func validateHMACSignatureLegacy(cardId: String, token: String, signature: String) -> Bool {
-        let data = "\(cardId):\(token)"
-        guard let keyData = secretKey.data(using: .utf8),
-              let messageData = data.data(using: .utf8) else {
-            return false
-        }
-        
-        let digestLength = Int(CC_SHA256_DIGEST_LENGTH)
-        let result = UnsafeMutablePointer<CUnsignedChar>.allocate(capacity: digestLength)
-        defer { result.deallocate() }
-        
-        keyData.withUnsafeBytes { keyBytes in
-            messageData.withUnsafeBytes { messageBytes in
-                CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),
-                       keyBytes.baseAddress, keyData.count,
-                       messageBytes.baseAddress, messageData.count,
-                       result)
-            }
-        }
-        
-        let hmacData = Data(bytes: result, count: digestLength)
-        let computedSignature = hmacData.map { String(format: "%02x", $0) }.joined()
-        
-        return computedSignature == signature
-    }
-    
     private func processSecureView(params: [String: Any], resolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock) {
         guard let cardId = params["cardId"] as? String,
               let cardData = params["cardData"] as? [String: Any] else {
@@ -156,7 +110,6 @@ class SecureCardViewModule: RCTEventEmitter {
         secureVC.cardData = cardData
         secureVC.config = config
         
-        // Configurar callback de cierre
         secureVC.onCloseCallback = { [weak self] closeData in
             self?.sendEvent(withName: "onSecureViewClosed", body: closeData)
             self?.currentSecureVC = nil
@@ -164,7 +117,6 @@ class SecureCardViewModule: RCTEventEmitter {
         
         self.currentSecureVC = secureVC
         
-        // Configurar observer para evento de datos mostrados
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleCardDataShown(_:)),
@@ -207,9 +159,7 @@ class SecureCardViewModule: RCTEventEmitter {
     }
 }
 
-// MARK: - Notification Extensions
-
 extension Notification.Name {
-    static let cardDataShown = Notification.Name("CardDataShown")
-    static let secureViewClosed = Notification.Name("SecureViewClosed")
+    static let cardDataShown = Notification.Name("cardDataShown")
+    static let secureViewClosed = Notification.Name("secureViewClosed")
 }

@@ -1,6 +1,6 @@
-# @vaultfintech/secure-native
+# fintech-secure-native
 
-React Native native module for securely displaying sensitive card data.
+React Native native module for securely displaying sensitive card data with enterprise-grade security features.
 
 ## 🔒 Security Features
 
@@ -12,13 +12,15 @@ React Native native module for securely displaying sensitive card data.
 - ✅ **Auto-hide**: Automatic blur when app goes to background
 - ✅ **Session Timeout**: Automatic close after configurable time
 - ✅ **No sensitive logs**: Verification that sensitive data is not saved in logs
+- ✅ **Background Protection**: Automatic blur overlay when app loses focus
+- ✅ **Screen Recording Detection**: iOS screen recording detection and auto-close
 
 ### Events Exposed to JavaScript
 
 ```typescript
 // Available events
 onSecureViewOpened(cardId: string) => void
-onValidationError(code: string, message: string) => void
+onValidationError(code: string, message: string, recoverable: boolean) => void
 onCardDataShown(cardId: string, timestamp: number) => void
 onSecureViewClosed(cardId: string, reason: CloseReason, duration: number) => void
 ```
@@ -26,78 +28,77 @@ onSecureViewClosed(cardId: string, reason: CloseReason, duration: number) => voi
 ## 📦 Installation
 
 ```bash
-npm install @vaultfintech/secure-native
+npm install fintech-secure-native
 # or
-yarn add @vaultfintech/secure-native
+yarn add fintech-secure-native
 ```
 
 ### iOS Configuration
 
-Add to `Podfile`:
+Add to `ios/Podfile`:
 
 ```ruby
-pod 'RNSecureCardNative', :path => '../node_modules/@vaultfintech/secure-native'
+pod 'SecureCardNative', :path => '../node_modules/fintech-secure-native'
+```
+
+Then run:
+
+```bash
+cd ios && pod install
 ```
 
 ### Android Configuration
 
-Add to `android/settings.gradle`:
-
-```gradle
-include ':react-native-secure-card-native'
-project(':react-native-secure-card-native').projectDir = new File(rootProject.projectDir, '../node_modules/@vaultfintech/secure-native/android')
-```
-
-## 🔐 Security Configuration
-
-### Setting Secret Key
-
-For production use, you should set a custom secret key:
-
-```typescript
-import { setSecretKey } from "@vaultfintech/secure-native";
-
-// Set your custom secret key (do this early in your app initialization)
-setSecretKey("your-custom-secret-key-here");
-```
-
-**Important**: Change the default secret key in production environments.
+The module is automatically linked. No additional configuration required.
 
 ## 🚀 Basic Usage
 
-### 1. React Native Hook
+### 1. React Native Hook (Recommended)
 
 ```typescript
 import {
   useSecureCard,
   generateSecureToken,
-} from "@vaultfintech/secure-native";
+} from "fintech-secure-native";
 
 function MyComponent() {
-  const { openSecureView, closeSecureView, isOpen, error } = useSecureCard();
+  const { openSecureView, closeSecureView, isOpen, error, isOpening } = useSecureCard();
 
   const showCardData = async () => {
-    const { token, signature } = generateSecureToken("card-123");
+    try {
+      const { token, signature } = generateSecureToken("card-123");
 
-    await openSecureView({
-      cardId: "card-123",
-      token,
-      signature,
-      cardData: {
-        pan: "4111111111111111",
-        cvv: "123",
-        expiry: "12/25",
-        holder: "JOHN DOE",
-      },
-      config: {
-        timeout: 60000,
-        blockScreenshots: true,
-        theme: "dark",
-      },
-    });
+      await openSecureView({
+        cardId: "card-123",
+        token,
+        signature,
+        cardData: {
+          pan: "4111111111111111",
+          cvv: "123",
+          expiry: "12/25",
+          holder: "JOHN DOE",
+        },
+        config: {
+          timeout: 60000,
+          blockScreenshots: true,
+          theme: "dark",
+        },
+      });
+    } catch (error) {
+      console.error("Failed to open secure view:", error);
+    }
   };
 
-  return <Button onPress={showCardData} title="View Sensitive Data" />;
+  return (
+    <View>
+      <Button
+        onPress={showCardData}
+        title="View Sensitive Data"
+        disabled={isOpening}
+      />
+      {error && <Text>Error: {error.message}</Text>}
+    </View>
+  );
 }
 ```
 
@@ -107,7 +108,7 @@ function MyComponent() {
 import SecureCardNative, {
   generateSecureToken,
   type OpenSecureViewParams,
-} from "@vaultfintech/secure-native";
+} from "fintech-secure-native";
 
 // Generate secure token
 const { token, signature } = generateSecureToken("card-123");
@@ -133,7 +134,11 @@ const params: OpenSecureViewParams = {
 };
 
 // Open secure view
-await SecureCardNative.openSecureView(params);
+try {
+  await SecureCardNative.openSecureView(params);
+} catch (error) {
+  console.error("Failed to open secure view:", error);
+}
 ```
 
 ## 📋 API Reference
@@ -164,13 +169,30 @@ interface OpenSecureViewParams {
   config?: SecureViewConfig;
 }
 
+interface ValidationError {
+  code: ValidationErrorCode;
+  message: string;
+  recoverable: boolean;
+}
+
 type ValidationErrorCode =
   | "TOKEN_EXPIRED"
   | "TOKEN_INVALID"
   | "BIOMETRIC_FAILED"
   | "PERMISSION_DENIED";
 
-type CloseReason = "USER_DISMISS" | "TIMEOUT" | "ERROR" | "BACKGROUND";
+type CloseReason =
+  | "USER_DISMISS"
+  | "TIMEOUT"
+  | "SCREENSHOT_ATTEMPT"
+  | "SCREEN_RECORDING_DETECTED"
+  | "BACKGROUND";
+
+interface CloseEventData {
+  cardId: string;
+  reason: CloseReason;
+  duration: number;
+}
 ```
 
 ### Methods
@@ -222,7 +244,7 @@ Configure the secret key for HMAC:
 
 ```typescript
 // In your app initialization
-import { setSecretKey } from "@vaultfintech/secure-native";
+import { setSecretKey } from "fintech-secure-native";
 
 // Use environment variable or custom key
 const secretKey = process.env.SECURE_CARD_SECRET_KEY || "your-custom-key";
@@ -258,7 +280,7 @@ const config: SecureViewConfig = {
 
 ```typescript
 // In your API, generate secure tokens
-import { generateSecureToken } from "@vaultfintech/secure-native";
+import { generateSecureToken } from "fintech-secure-native";
 
 app.post("/api/cards/:cardId/secure-token", async (req, res) => {
   const { cardId } = req.params;
@@ -285,10 +307,12 @@ app.post("/api/cards/:cardId/secure-token", async (req, res) => {
 
 - ✅ HMAC-SHA256 signature validation
 - ✅ Tokens with TTL (Time To Live)
-- ✅ Native screenshot blocking
-- ✅ Auto-hide in background
+- ✅ Native screenshot blocking (FLAG_SECURE on Android)
+- ✅ Auto-hide in background with blur overlay
 - ✅ Configurable timeouts
 - ✅ Auditable events
+- ✅ Screen recording detection (iOS)
+- ✅ Screenshot attempt detection (iOS)
 
 ### Recommendations
 
@@ -297,10 +321,34 @@ app.post("/api/cards/:cardId/secure-token", async (req, res) => {
 - 📱 Implement biometric authentication when available
 - 🔄 Renew tokens on each use
 - 📊 Monitor security events
+- 🔒 Use HTTPS for all API communications
+- 🛡️ Implement rate limiting on token generation
+
+## 🧪 Testing
+
+### Unit Tests
+
+```typescript
+import { generateSecureToken, validateToken } from "fintech-secure-native";
+
+describe("Token Generation", () => {
+  it("should generate valid tokens", () => {
+    const { token, signature } = generateSecureToken("test-card");
+    expect(validateToken("test-card", token, signature)).toBe(true);
+  });
+
+  it("should reject expired tokens", () => {
+    const { token, signature } = generateSecureToken("test-card");
+    // Simulate time passing
+    jest.advanceTimersByTime(3600001); // 1 hour + 1ms
+    expect(validateToken("test-card", token, signature)).toBe(false);
+  });
+});
+```
 
 ## 📄 License
 
-MIT © [Jorge Luis Rojas Poma](https://github.com/jorgeluisrojaspoma)
+MIT © [Jorge Luis Rojas Poma](https://github.com/JorgeRojas827)
 
 ## 🤝 Contributing
 
@@ -313,7 +361,26 @@ MIT © [Jorge Luis Rojas Poma](https://github.com/jorgeluisrojaspoma)
 ## 📞 Support
 
 - Email: jorgerojaspoma09@gmail.com
-- GitHub Issues: [Report an issue](https://github.com/io-fintech/secure-card-native/issues)
+- GitHub Issues: [Report an issue](https://github.com/JorgeRojas827/fintech-secure-native/issues)
+
+## 📦 Build
+
+```bash
+# Install dependencies
+npm install
+
+# Build the library
+npm run build
+
+# Run tests
+npm test
+
+# Type checking
+npm run type-check
+
+# Linting
+npm run lint
+```
 
 ---
 
